@@ -7,6 +7,8 @@ export interface Componente {
   Marca?: string;
   Modelo?: string;
   Especificaciones?: string;
+  ConsumoEnergetico?: number;
+  Precio?: number;
 }
 
 export interface ApiRespuesta<T> {

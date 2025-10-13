@@ -304,14 +304,21 @@ function ModalComponente({ componente, tipos, onGuardar, onCerrar }: ModalProps)
       Marca: '',
       Modelo: '',
       Especificaciones: '',
+      ConsumoEnergetico: undefined,
+      Precio: undefined,
     }
   );
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
-    setForm(prev => ({
+    setForm((prev) => ({
       ...prev,
-      [name]: name === 'TipoId' ? parseInt(value) : value
+      [name]:
+        name === 'TipoId' || name === 'ConsumoEnergetico' || name === 'Precio'
+          ? parseFloat(value)
+          : value,
     }));
   };
 
@@ -324,15 +331,23 @@ function ModalComponente({ componente, tipos, onGuardar, onCerrar }: ModalProps)
       alert('Por favor selecciona un tipo de componente');
       return;
     }
-    
+    if (!form.ConsumoEnergetico || form.ConsumoEnergetico <= 0) {
+      alert('Por favor ingresa el consumo energético del componente (en vatios)');
+      return;
+    }
+    if (form.Precio == null || form.Precio <= 0) {
+      alert('Por favor ingresa un precio válido para el componente');
+      return;
+    }
+
     // Asegurar que los campos opcionales no sean undefined
     const componenteLimpio: Componente = {
       ...form,
-      Marca: form.Marca?.trim() || null as any,
-      Modelo: form.Modelo?.trim() || null as any,
-      Especificaciones: form.Especificaciones?.trim() || null as any
+      Marca: form.Marca?.trim() || (null as any),
+      Modelo: form.Modelo?.trim() || (null as any),
+      Especificaciones: form.Especificaciones?.trim() || (null as any),
     };
-    
+
     onGuardar(componenteLimpio);
   };
 
@@ -358,7 +373,7 @@ function ModalComponente({ componente, tipos, onGuardar, onCerrar }: ModalProps)
               className="w-full px-4 py-3 bg-pc-dark border border-gray-700 rounded-lg text-gray-100 focus:ring-2 focus:ring-pc-accent"
             >
               <option value="">Seleccionar tipo...</option>
-              {tipos.map(tipo => (
+              {tipos.map((tipo) => (
                 <option key={tipo.Id} value={tipo.Id}>
                   {tipo.Nombre}
                 </option>
@@ -408,6 +423,39 @@ function ModalComponente({ componente, tipos, onGuardar, onCerrar }: ModalProps)
               onChange={handleChange}
               placeholder="Ej: RTX 4090"
               className="w-full px-4 py-3 bg-pc-dark border border-gray-700 rounded-lg text-gray-100 focus:ring-2 focus:ring-pc-accent"
+            />
+          </div>
+
+          {/* Consumo Energético */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-300 mb-2">
+              Consumo Energético (W) *
+            </label>
+            <input
+              type="number"
+              name="ConsumoEnergetico"
+              value={form.ConsumoEnergetico || ''}
+              onChange={handleChange}
+              placeholder="Ej: 125"
+              className="w-full px-4 py-3 bg-pc-dark border border-gray-700 rounded-lg text-gray-100 focus:ring-2 focus:ring-pc-accent"
+              min={1}
+            />
+          </div>
+
+          {/* Precio */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-300 mb-2">
+              Precio (USD) *
+            </label>
+            <input
+              type="number"
+              name="Precio"
+              step="0.01"
+              value={form.Precio ?? ''}
+              onChange={handleChange}
+              placeholder="Ej: 299.99"
+              className="w-full px-4 py-3 bg-pc-dark border border-gray-700 rounded-lg text-gray-100 focus:ring-2 focus:ring-pc-accent"
+              min={0.01}
             />
           </div>
 
