@@ -3,6 +3,7 @@ import {
   listarTiposComponentes,
   guardarTipoComponente,
   modificarTipoComponente,
+  borrarTipoComponente,
   type TipoComponente
 } from '../services/tiposComponentes';
 
@@ -57,6 +58,23 @@ function AdminTipos() {
       cerrarModal();
     } catch (err: any) {
       alert('Error: ' + err.message);
+    }
+  };
+
+  const handleBorrar = async (tipo: TipoComponente) => {
+    if (!tipo.Id) return;
+    
+    if (!confirm(`¿Estás seguro de borrar el tipo "${tipo.Nombre}"?`)) {
+      return;
+    }
+
+    try {
+      const resp = await borrarTipoComponente(tipo);
+      if (resp.Error) throw new Error(resp.Error);
+      await cargarTipos();
+      cerrarModal();
+    } catch (err: any) {
+      alert('Error al borrar: ' + err.message);
     }
   };
 
@@ -136,6 +154,7 @@ function AdminTipos() {
         <ModalTipo
           tipo={tipoEditando}
           onGuardar={handleGuardar}
+          onBorrar={handleBorrar}
           onCerrar={cerrarModal}
         />
       )}
@@ -147,10 +166,11 @@ function AdminTipos() {
 interface ModalProps {
   tipo: TipoComponente | null;
   onGuardar: (tipo: TipoComponente) => void;
+  onBorrar: (tipo: TipoComponente) => void;
   onCerrar: () => void;
 }
 
-function ModalTipo({ tipo, onGuardar, onCerrar }: ModalProps) {
+function ModalTipo({ tipo, onGuardar, onBorrar, onCerrar }: ModalProps) {
   const [form, setForm] = useState<TipoComponente>(
     tipo || {
       Nombre: '',
@@ -169,6 +189,12 @@ function ModalTipo({ tipo, onGuardar, onCerrar }: ModalProps) {
       return;
     }
     onGuardar(form);
+  };
+
+  const handleBorrarClick = () => {
+    if (tipo) {
+      onBorrar(tipo);
+    }
   };
 
   return (
@@ -224,6 +250,15 @@ function ModalTipo({ tipo, onGuardar, onCerrar }: ModalProps) {
             >
               Cancelar
             </button>
+            {tipo && tipo.Id && (
+              <button
+                type="button"
+                onClick={handleBorrarClick}
+                className="px-6 bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-semibold transition flex items-center gap-2"
+              >
+                🗑️ Borrar
+              </button>
+            )}
           </div>
         </form>
       </div>

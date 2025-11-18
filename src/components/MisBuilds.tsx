@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import {
   obtenerBuildsPorUsuario,
   borrarBuild,
+  guardarBuild,
+  modificarBuild,
   type Build
 } from '../services/builds';
 import {
@@ -12,6 +14,7 @@ import {
   listarComponentes,
   type Componente
 } from '../services/componentes';
+import { exportarBuildAPDF } from '../utils/pdfExportUtils';
 
 interface BuildConComponentes extends Build {
   componentes?: Componente[];
@@ -22,11 +25,11 @@ function MisBuilds({ usuarioId }: { usuarioId: number }) {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [buildSeleccionada, setBuildSeleccionada] = useState<Build | null>(null);
-
-  useEffect(() => {
-    cargarBuilds();
-  }, []);
   
+  // Estados para el modal de edición
+  const [mostrarModal, setMostrarModal] = useState(false);
+  const [buildEditando, setBuildEditando] = useState<Build | null>(null);
+  const [guardando, setGuardando] = useState(false);
 
   useEffect(() => {
     cargarBuilds();
@@ -61,6 +64,141 @@ function MisBuilds({ usuarioId }: { usuarioId: number }) {
     } catch (err: any) {
       alert('Error al eliminar: ' + err.message);
     }
+  };
+
+  const handleEditar = (build: Build) => {
+    setBuildEditando({ ...build });
+    setMostrarModal(true);
+  };
+
+  const handleDuplicar = async (build: Build) => {
+    if (!confirm(`¿Duplicar la build "${build.Nombre}"?`)) return;
+
+    try {
+      setGuardando(true);
+      
+      const buildDuplicada: Build = {
+        UsuarioId: usuarioId,
+        Nombre: `${build.Nombre} (Copia)`,
+        Version: build.Version,
+        Estado: 'Activa',
+      };
+
+      const resp = await guardarBuild(buildDuplicada);
+      
+      if (resp.Error) throw new Error(resp.Error);
+      
+      alert('Build duplicada exitosamente');
+      await cargarBuilds();
+      
+      if (resp.Entidad) {
+        setBuildSeleccionada(resp.Entidad);
+      }
+    } catch (err: any) {
+      alert('Error al duplicar: ' + err.message);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const handleExportarPDF = async (build: Build) => {
+    try {
+      setGuardando(true);
+      
+      console.log('🔄 Iniciando exportación para build:', build);
+      
+      // Obtener componentes de la build
+      let componentesCompletos: any[] = [];
+      
+      if (build.Id) {
+        try {
+          // 1. Obtener las relaciones ComponenteEnBuild
+          const respComponentesEnBuild = await obtenerComponentesPorBuild(build.Id);
+          const componentesEnBuild = respComponentesEnBuild.Entidades || [];
+          
+          console.log('📦 ComponentesEnBuild recibidos:', componentesEnBuild);
+          
+          if (componentesEnBuild.length > 0) {
+            // 2. Obtener todos los componentes disponibles
+            const respTodosComponentes = await listarComponentes();
+            const todosComponentes = respTodosComponentes.Entidades || [];
+            
+            console.log('📚 Todos los componentes:', todosComponentes);
+            
+            // 3. Combinar la información
+            componentesCompletos = componentesEnBuild.map((ceb: any) => {
+              // Buscar el componente completo
+              const componenteCompleto = todosComponentes.find(
+                (c: any) => c.Id === ceb.ComponenteId
+              );
+              
+              return {
+                ...ceb,
+                _ComponenteId: componenteCompleto || {},
+                Nombre: componenteCompleto?.Nombre || 'Desconocido',
+                Marca: componenteCompleto?.Marca || 'N/A',
+                Modelo: componenteCompleto?.Modelo || 'N/A',
+                Precio: componenteCompleto?.Precio || 0,
+                ConsumoEnergetico: componenteCompleto?.ConsumoEnergetico || 0,
+                Especificaciones: componenteCompleto?.Especificaciones || '',
+              };
+            });
+            
+            console.log('✅ Componentes completos preparados:', componentesCompletos);
+          }
+        } catch (compErr) {
+          console.error('❌ Error al cargar componentes:', compErr);
+          alert('⚠️ No se pudieron cargar los componentes. El PDF se generará sin ellos.');
+        }
+      }
+      
+      // Exportar el PDF
+      await exportarBuildAPDF(build, componentesCompletos);
+      
+      alert('✅ PDF generado exitosamente');
+      
+    } catch (err: any) {
+      console.error('❌ Error al exportar PDF:', err);
+      alert('❌ Error al exportar PDF: ' + err.message);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const handleGuardarEdicion = async () => {
+    if (!buildEditando) return;
+
+    if (!buildEditando.Nombre?.trim()) {
+      alert('El nombre es obligatorio');
+      return;
+    }
+
+    try {
+      setGuardando(true);
+      
+      const resp = await modificarBuild(buildEditando);
+      
+      if (resp.Error) throw new Error(resp.Error);
+      
+      alert('Build actualizada exitosamente');
+      await cargarBuilds();
+      
+      if (resp.Entidad) {
+        setBuildSeleccionada(resp.Entidad);
+      }
+      
+      setMostrarModal(false);
+      setBuildEditando(null);
+    } catch (err: any) {
+      alert('Error al guardar: ' + err.message);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const handleCerrarModal = () => {
+    setMostrarModal(false);
+    setBuildEditando(null);
   };
 
   const formatearFecha = (fecha?: string) => {
@@ -186,9 +324,10 @@ function MisBuilds({ usuarioId }: { usuarioId: number }) {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        alert('Exportar a PDF próximamente');
+                        handleExportarPDF(build);
                       }}
-                      className="text-purple-400 hover:text-purple-300 text-sm font-medium transition"
+                      disabled={guardando}
+                      className="text-purple-400 hover:text-purple-300 text-sm font-medium transition disabled:opacity-50"
                     >
                       📄 Exportar PDF
                     </button>
@@ -241,20 +380,30 @@ function MisBuilds({ usuarioId }: { usuarioId: number }) {
 
                 <div className="space-y-2 pt-4 border-t border-gray-700">
                   <button
-                    onClick={() => alert('Función de editar próximamente')}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition"
+                    onClick={() => handleEditar(buildSeleccionada)}
+                    disabled={guardando}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     ✏️ Editar
                   </button>
                   <button
-                    onClick={() => alert('Función de duplicar próximamente')}
-                    className="w-full bg-pc-dark hover:bg-gray-700 text-gray-300 py-2 rounded-lg font-medium transition"
+                    onClick={() => handleDuplicar(buildSeleccionada)}
+                    disabled={guardando}
+                    className="w-full bg-pc-dark hover:bg-gray-700 text-gray-300 py-2 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    📋 Duplicar
+                    {guardando ? '⏳ Duplicando...' : '📋 Duplicar'}
+                  </button>
+                  <button
+                    onClick={() => handleExportarPDF(buildSeleccionada)}
+                    disabled={guardando}
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {guardando ? '⏳ Generando PDF...' : '📄 Exportar PDF'}
                   </button>
                   <button
                     onClick={() => handleEliminar(buildSeleccionada)}
-                    className="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium transition"
+                    disabled={guardando}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     🗑️ Eliminar
                   </button>
@@ -268,6 +417,89 @@ function MisBuilds({ usuarioId }: { usuarioId: number }) {
                 </p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Edición */}
+      {mostrarModal && buildEditando && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-pc-panel rounded-xl border border-gray-700 w-full max-w-md shadow-2xl">
+            <div className="p-6 border-b border-gray-700">
+              <h3 className="text-xl font-bold text-white">
+                ✏️ Editar Build
+              </h3>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Nombre
+                </label>
+                <input
+                  type="text"
+                  value={buildEditando.Nombre || ''}
+                  onChange={(e) => setBuildEditando({
+                    ...buildEditando,
+                    Nombre: e.target.value
+                  })}
+                  className="w-full bg-pc-dark border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-pc-accent focus:outline-none"
+                  placeholder="Nombre de la build"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Versión
+                </label>
+                <input
+                  type="text"
+                  value={buildEditando.Version || ''}
+                  onChange={(e) => setBuildEditando({
+                    ...buildEditando,
+                    Version: e.target.value
+                  })}
+                  className="w-full bg-pc-dark border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-pc-accent focus:outline-none"
+                  placeholder="1.0"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Estado
+                </label>
+                <select
+                  value={buildEditando.Estado || 'Activa'}
+                  onChange={(e) => setBuildEditando({
+                    ...buildEditando,
+                    Estado: e.target.value
+                  })}
+                  className="w-full bg-pc-dark border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-pc-accent focus:outline-none"
+                >
+                  <option value="Activa">Activa</option>
+                  <option value="Inactiva">Inactiva</option>
+                  <option value="En Progreso">En Progreso</option>
+                  <option value="Archivada">Archivada</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-700 flex gap-3">
+              <button
+                onClick={handleCerrarModal}
+                disabled={guardando}
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleGuardarEdicion}
+                disabled={guardando || !buildEditando.Nombre?.trim()}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {guardando ? '⏳ Guardando...' : '💾 Guardar'}
+              </button>
+            </div>
           </div>
         </div>
       )}

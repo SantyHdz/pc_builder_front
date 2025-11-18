@@ -45,7 +45,6 @@ function ConstructorPC({ usuarioId }: { usuarioId: number }) {
       
       const tiposData = resp.Entidades || [];
       
-      // Ordenar tipos según flujo lógico: Motherboard primero
       const ordenPreferido = ['Motherboard', 'Placa Madre', 'Procesador', 'CPU', 'RAM', 'Memoria', 'GPU', 'Tarjeta Gráfica', 'Almacenamiento', 'Fuente', 'Gabinete'];
       
       const tiposOrdenados = tiposData.sort((a, b) => {
@@ -67,7 +66,6 @@ function ConstructorPC({ usuarioId }: { usuarioId: number }) {
         componente: null
       })));
       
-      // Cargar componentes del primer tipo
       if (tiposOrdenados.length > 0) {
         cargarComponentesPorPaso(0, tiposOrdenados);
       }
@@ -88,7 +86,6 @@ function ConstructorPC({ usuarioId }: { usuarioId: number }) {
     try {
       const tipoActual = tiposLista[paso];
       
-      // Si es el primer paso (motherboard), mostrar todos
       if (paso === 0) {
         const resp = tipoActual.Id 
           ? await filtrarComponentesPorTipo(tipoActual.Id)
@@ -97,11 +94,9 @@ function ConstructorPC({ usuarioId }: { usuarioId: number }) {
         if (resp.Error) throw new Error(resp.Error);
         setComponentesDisponibles(resp.Entidades || []);
       } else {
-        // Para pasos posteriores, buscar compatibles con componente anterior
         const componenteAnterior = seleccion[paso - 1]?.componente;
         
         if (!componenteAnterior || !componenteAnterior.Id) {
-          // Si no hay componente anterior, mostrar todos del tipo
           const resp = tipoActual.Id 
             ? await filtrarComponentesPorTipo(tipoActual.Id)
             : await listarComponentes();
@@ -110,20 +105,16 @@ function ConstructorPC({ usuarioId }: { usuarioId: number }) {
           setComponentesDisponibles(resp.Entidades || []);
           setAlertaCompatibilidad('ℹ️ Mostrando todos los componentes. Selecciona componentes previos para ver solo compatibles.');
         } else {
-          // Buscar componentes compatibles
           const resp = await obtenerCompatibles(componenteAnterior.Id);
           
           if (resp.Error) throw new Error(resp.Error);
           
           const compatibles = resp.Entidades || [];
-          
-          // Filtrar por tipo actual
           const compatiblesPorTipo = compatibles.filter(c => c.TipoId === tipoActual.Id);
           
           if (compatiblesPorTipo.length === 0) {
             setAlertaCompatibilidad(`⚠️ No hay ${tipoActual.Nombre}s compatibles con "${componenteAnterior.Nombre}". Mostrando todos.`);
             
-            // Mostrar todos como fallback
             const respTodos = tipoActual.Id 
               ? await filtrarComponentesPorTipo(tipoActual.Id)
               : await listarComponentes();
@@ -150,7 +141,6 @@ function ConstructorPC({ usuarioId }: { usuarioId: number }) {
         : item
     ));
     
-    // Avanzar al siguiente paso automáticamente
     if (pasoActual < tipos.length - 1) {
       const siguientePaso = pasoActual + 1;
       setPasoActual(siguientePaso);
@@ -171,17 +161,26 @@ function ConstructorPC({ usuarioId }: { usuarioId: number }) {
         : item
     ));
     
-    // Si quitamos un componente, los siguientes también deben ser revisados
-    // ya que la compatibilidad puede cambiar
     if (paso < pasoActual) {
       setPasoActual(paso);
       cargarComponentesPorPaso(paso);
     }
   };
 
+  // 🆕 FUNCIÓN ACTUALIZADA: Calcular precio total
   const calcularTotal = () => {
-    // Por ahora retorna 0, necesitas agregar campo Precio a Componente
-    return 0;
+    return seleccion.reduce((total, item) => {
+      const precio = item.componente?.Precio || 0;
+      return total + precio;
+    }, 0);
+  };
+
+  // 🆕 NUEVA FUNCIÓN: Calcular consumo energético total
+  const calcularConsumoTotal = () => {
+    return seleccion.reduce((total, item) => {
+      const consumo = item.componente?.ConsumoEnergetico || 0;
+      return total + consumo;
+    }, 0);
   };
 
   const handleGuardar = async () => {
@@ -200,7 +199,6 @@ function ConstructorPC({ usuarioId }: { usuarioId: number }) {
     try {
       setGuardando(true);
       
-      // 1. Crear la build
       const build: Build = {
         UsuarioId: usuarioId,
         Nombre: nombreBuild,
@@ -216,7 +214,6 @@ function ConstructorPC({ usuarioId }: { usuarioId: number }) {
       
       const buildId = respBuild.Entidad.Id;
       
-      // 2. Guardar cada componente en la build
       for (const item of componentesSeleccionados) {
         if (!item.componente?.Id) continue;
         
@@ -255,6 +252,8 @@ function ConstructorPC({ usuarioId }: { usuarioId: number }) {
 
   const componentesSeleccionados = seleccion.filter(s => s.componente !== null).length;
   const progreso = (componentesSeleccionados / tipos.length) * 100;
+  const precioTotal = calcularTotal();
+  const consumoTotal = calcularConsumoTotal();
 
   if (cargando && tipos.length === 0) {
     return (
@@ -272,7 +271,7 @@ function ConstructorPC({ usuarioId }: { usuarioId: number }) {
   return (
     <div className="space-y-6">
       {/* Header con progreso */}
-      <div className="bg-gradient-to-r from-pc-panel to-pc-dark rounded-xl p-6 border border-gray-700">
+      <div className="bg-gradient-to-r from-pc-panel to-pc-dark rounded-2xl p-6 border border-gray-700">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-2xl font-bold text-white mb-1">
@@ -390,6 +389,19 @@ function ConstructorPC({ usuarioId }: { usuarioId: number }) {
                               {item.componente.Marca}
                             </div>
                           )}
+                          {/* 🆕 Mostrar precio y consumo individual */}
+                          <div className="flex gap-3 mt-2 text-xs">
+                            {item.componente.Precio !== undefined && item.componente.Precio !== null && (
+                              <span className="text-green-400">
+                                💰 ${item.componente.Precio.toFixed(2)}
+                              </span>
+                            )}
+                            {item.componente.ConsumoEnergetico !== undefined && item.componente.ConsumoEnergetico !== null && (
+                              <span className="text-yellow-400">
+                                ⚡ {item.componente.ConsumoEnergetico}W
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <button
                           onClick={() => quitarComponente(idx)}
@@ -405,13 +417,41 @@ function ConstructorPC({ usuarioId }: { usuarioId: number }) {
               </div>
             )}
             
-            {/* Resumen */}
+            {/* 🆕 Resumen mejorado con totales */}
             <div className="mt-4 pt-4 border-t border-gray-700">
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between text-gray-400">
-                  <span>Total estimado:</span>
-                  <span className="font-bold text-pc-accent">${calcularTotal()}</span>
+              <div className="space-y-3 text-sm">
+                {/* Precio Total */}
+                <div className="flex justify-between items-center p-3 bg-green-900/20 rounded-lg border border-green-700">
+                  <span className="text-gray-300 flex items-center gap-2">
+                    <span className="text-lg">💰</span>
+                    Precio Total:
+                  </span>
+                  <span className="font-bold text-xl text-green-400">
+                    ${precioTotal.toFixed(2)}
+                  </span>
                 </div>
+
+                {/* Consumo Total */}
+                <div className="flex justify-between items-center p-3 bg-yellow-900/20 rounded-lg border border-yellow-700">
+                  <span className="text-gray-300 flex items-center gap-2">
+                    <span className="text-lg">⚡</span>
+                    Consumo Total:
+                  </span>
+                  <span className="font-bold text-xl text-yellow-400">
+                    {consumoTotal}W
+                  </span>
+                </div>
+
+                {/* 🆕 Recomendación de fuente de poder */}
+                {consumoTotal > 0 && (
+                  <div className="p-3 bg-blue-900/20 rounded-lg border border-blue-700">
+                    <p className="text-xs text-blue-300">
+                      💡 <strong>Recomendación:</strong> Fuente de poder de al menos {Math.ceil(consumoTotal * 1.2)}W
+                      <br />
+                      <span className="text-gray-400">(20% de margen de seguridad)</span>
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -475,7 +515,7 @@ function ConstructorPC({ usuarioId }: { usuarioId: number }) {
                     <h4 className="font-semibold text-white mb-2">
                       {comp.Nombre}
                     </h4>
-                    <div className="flex gap-2 mb-2">
+                    <div className="flex gap-2 mb-2 flex-wrap">
                       {comp.Marca && (
                         <span className="text-xs bg-gray-700 px-2 py-1 rounded text-gray-400">
                           {comp.Marca}
@@ -487,6 +527,21 @@ function ConstructorPC({ usuarioId }: { usuarioId: number }) {
                         </span>
                       )}
                     </div>
+
+                    {/* 🆕 Mostrar precio y consumo en tarjetas */}
+                    <div className="flex gap-3 mb-2">
+                      {comp.Precio !== undefined && comp.Precio !== null && (
+                        <span className="text-sm text-green-400 font-semibold">
+                          💰 ${comp.Precio.toFixed(2)}
+                        </span>
+                      )}
+                      {comp.ConsumoEnergetico !== undefined && comp.ConsumoEnergetico !== null && (
+                        <span className="text-sm text-yellow-400 font-semibold">
+                          ⚡ {comp.ConsumoEnergetico}W
+                        </span>
+                      )}
+                    </div>
+
                     {comp.Especificaciones && (
                       <p className="text-xs text-gray-500 line-clamp-2">
                         {comp.Especificaciones}
@@ -539,6 +594,18 @@ function ConstructorPC({ usuarioId }: { usuarioId: number }) {
                     </li>
                   ))}
                 </ul>
+
+                {/* 🆕 Resumen de totales en modal */}
+                <div className="mt-4 pt-4 border-t border-gray-700 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">💰 Precio Total:</span>
+                    <span className="font-bold text-green-400">${precioTotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">⚡ Consumo Total:</span>
+                    <span className="font-bold text-yellow-400">{consumoTotal}W</span>
+                  </div>
+                </div>
               </div>
 
               <div className="flex gap-3">

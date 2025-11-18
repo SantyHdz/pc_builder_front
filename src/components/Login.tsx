@@ -154,7 +154,12 @@ function Login({ onLoginSuccess, onCambiarARegistro }: LoginProps) {
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-16">
             <div className="bg-pc-accent w-12 h-12 rounded-xl flex items-center justify-center shadow-lg shadow-pc-accent/30">
-              <span className="font-bold text-xl text-black">PC</span>
+              <span className="font-bold text-xl text-black">
+                <img 
+                  src="/logo.png" 
+                  alt="PC Builder" 
+                  className="w-full h-full object-contain p-1.5"
+                /></span>
             </div>
             <span className="font-bold text-2xl text-pc-accent">PC Builder</span>
           </div>
@@ -189,7 +194,11 @@ function Login({ onLoginSuccess, onCambiarARegistro }: LoginProps) {
           {/* Header móvil */}
           <div className="lg:hidden mb-8 text-center">
             <div className="bg-pc-accent w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-pc-accent/40">
-              <span className="font-bold text-2xl text-black">PC</span>
+              <span className="font-bold text-2xl text-black"><img 
+            src="/logo.png" 
+            alt="PC Builder" 
+            className="w-full h-full object-contain p-1.5"
+          /></span>
             </div>
             <h2 className="text-2xl font-bold text-pc-accent">PC Builder</h2>
           </div>

@@ -103,10 +103,14 @@ function Dashboard({ usuario, onCerrarSesion }: DashboardProps) {
       >
         <div className="p-6 border-b border-gray-700 flex items-center gap-3">
           <div className="bg-pc-accent w-10 h-10 rounded-xl flex items-center justify-center text-black font-bold text-xl shadow-lg shadow-pc-accent/30">
-            PC
+            <img 
+              src="/logo.png" 
+              alt="PC Builder" 
+              className="w-full h-full object-contain p-1"
+            />
           </div>
           {menuAbierto && (
-            <span className="font-bold text-xl text-pc-accent">Builder</span>
+            <span className="font-bold text-xl text-pc-accent">PC Builder</span>
           )}
         </div>
 

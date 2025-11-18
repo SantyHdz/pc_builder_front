@@ -305,6 +305,7 @@ function ModalComponente({ componente, tipos, onGuardar, onCerrar }: ModalProps)
       Modelo: '',
       Especificaciones: '',
       ConsumoEnergetico: undefined,
+      
       Precio: undefined,
     }
   );

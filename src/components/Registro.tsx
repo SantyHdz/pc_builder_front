@@ -60,7 +60,12 @@ function Registro({ onRegistroSuccess, onCambiarALogin }: RegistroProps) {
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-16">
             <div className="bg-pc-accent w-12 h-12 rounded-xl flex items-center justify-center shadow-lg shadow-pc-accent/30">
-              <span className="font-bold text-xl text-black">PC</span>
+              <span className="font-bold text-xl text-black">
+                <img 
+                  src="/logo.png" 
+                  alt="PC Builder" 
+                  className="w-full h-full object-contain p-1.5"
+                /></span>
             </div>
             <span className="font-bold text-2xl text-pc-accent">
               PC Builder

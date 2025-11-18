@@ -31,3 +31,9 @@ export async function modificarTipoComponente(entidad: TipoComponente): Promise<
   const res = await api.post("/TiposComponentes/Modificar", { Entidad: entidad });
   return res.data;
 }
+
+// Borrar
+export async function borrarTipoComponente(entidad: TipoComponente): Promise<ApiRespuesta<TipoComponente>> {
+  const res = await api.post("/TiposComponentes/Borrar", { Entidad: entidad });
+  return res.data;
+}
